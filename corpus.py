@@ -1,5 +1,6 @@
 from nltk.corpus import movie_reviews
 import numpy as np
+import torch
 
 class MovieReviewsCorpus():
     def __init__(self, preprocess_pipeline):
@@ -70,8 +71,39 @@ class MovieReviewsCorpus():
     def get_corpus_words(self) -> list:
         return [w for doc in self.corpus for w in doc]
     
-    def get_embedding_matrix(self, embedding):
-        pass
+    def get_embedding_matrix(self, embedding, embedding_dim):
+        """
+        Returns
+        -------
+        np.ndarray
+            A 2D which each row has the corresponding embedding from the vocabulary
+        """
+        matrix_length = len(self.vocab)
+        embedding_matrix = np.zeros(matrix_length, embedding_dim)
+        for idx, key in enumerate(self.vocab.keys()):
+            try:
+                embedding_matrix[idx] = embedding[key]
+            except:
+                embedding_matrix[idx] = np.random.normal(scale=0.6, size = (embedding_dim, ))
+        return embedding_matrix
+    
+    def get_indexed_representation(self):
+        """
+        Returns
+        -------
+        Dictionary
+            Containing correspondences word -> index
+        
+        list(list(torch.tensor))
+            The corpus represented as indexes corresponding to each word
+        """
+        vocab = {}
+        for idx, key in enumerate(self.vocab.keys()):
+            vocab[key] = idx
+        
+        indexed_corpus = [[torch.tensor(vocab[w], dtype=torch.int32) for w in doc] for doc in self.corpus]
+        return indexed_corpus
+
 
     def _create_vocab(self):
         vocab = dict()
