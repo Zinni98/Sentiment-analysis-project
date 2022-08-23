@@ -1,5 +1,9 @@
+from cmath import phase
+from dis import findlabels
+from unicodedata import name
 from nltk.corpus import stopwords
 import re
+
 
 CONTRACTION_MAP =  {"ain't": "is not",
                         "aren't": "are not",
@@ -119,21 +123,38 @@ CONTRACTION_MAP =  {"ain't": "is not",
                         "you're": "you are",
                         "you've": "you have",
                     }
-
-class MRBasePipeline():
+class MRAbstractPipeline():
     def __init__(self):
-        """
-        Parameters
-        ----------
-        corpus: list[list[str]]
-            corpus should be a list of documents, each document should have 
-        """
+        self.pipeline = []
+    
+    def pipe(self, corpus):
+        for el in self.pipeline:
+            corpus = el(corpus)
+        return corpus
+    
+    def __call__(self, *args, **kwds):
+        if args[0] == None:
+            raise ValueError("Need a corpus as argument")
+        corpus = args[0]
+        return self.pipe(corpus)
+        
+
+class MRBasePipelineTokens(MRAbstractPipeline):
+    """
+    Pipeline for documents represented as list of tokens
+    """
+    def __init__(self):
+        super(MRBasePipelineTokens, self).__init__()
         self.pipeline = [self.remove_underscores, 
                          self.reducing_character_repetitions,
                          self.clean_contractions,
-                         self.remove_stop_words]
+                         self.clean_special_chars]
 
     def remove_underscores(self, corpus):
+        """
+        Solves the problem where some of the words are surrounded by underscores
+        (e.g. "_hello_")
+        """
         for doc in corpus:
             for idx, word in enumerate(doc):
                 if "_" in word:
@@ -156,21 +177,119 @@ class MRBasePipeline():
             new_doc = [self._clean_repetitions(w) for w in doc]
             new_corpus.append(new_doc)
         return new_corpus
-                
+
+    # inspired by https://towardsdatascience.com/cleaning-preprocessing-text-data-by-building-nlp-pipeline-853148add68a
+    def _clean_repetitions(self, word):
+        """
+        This Function will reduce repetition to two characters 
+        for alphabets and to one character for punctuations.
+
+        Parameters
+        ----------
+            word: str                
+        Returns
+        -------
+        str
+            Finally formatted text with alphabets repeating to 
+            one characters & punctuations limited to one repetition 
+            
+        Example:
+        Input : Realllllllllyyyyy,        Greeeeaaaatttt   !!!!?....;;;;:)
+        Output : Really, Great !?.;:)
+
+        """
+        # Pattern matching for all case alphabets
+        pattern_alpha = re.compile(r"([A-Za-z])\1{1,}", re.DOTALL)
+
+        # Limiting all the repetitions to two characters.
+        # MODIFIED: keep only one repetition of the character
+        formatted_text = pattern_alpha.sub(r"\1\1", word) 
+
+        # Pattern matching for all the punctuations that can occur
+        pattern_punct = re.compile(r'([.,/#!$%^&*?;:{}=_`~()+-])\1{1,}')
+
+        # Limiting punctuations in previously formatted string to only one.
+        combined_formatted = pattern_punct.sub(r'\1', formatted_text)
+
+        # The below statement is replacing repetitions of spaces that occur more than two times with that of one occurrence.
+        final_formatted = re.sub(' {2,}',' ', combined_formatted)
+        return final_formatted
+    
+    def clean_contractions(self, corpus):
+        new_corpus = []
+        for doc in corpus:
+            new_doc = []
+            for word in doc:
+                try:
+                    correct = CONTRACTION_MAP[word]
+                    correct = correct.split()
+                    new_doc += correct
+                except:
+                    new_doc.append(word)
+            new_corpus.append(new_doc)
+        return new_corpus
+
+    def clean_special_chars(self, corpus):
+        new_corpus = [[self._clean_special_word(w) for w in doc] for doc in corpus] 
+        return new_corpus
+    
+    def _clean_special_word(self, word):
+        # The formatted text after removing not necessary punctuations.
+        formatted_text = re.sub(r"[^a-zA-Z0-9:€$-,%.?!]+", ' ', word) 
+        # In the above regex expression,I am providing necessary set of punctuations that are frequent in this particular dataset.
+        return formatted_text
+    
+
+class MRBasePipelinePhrases(MRAbstractPipeline):
+    """
+    Pipeline for documents represented as list of phrases
+    """
+    def __init__(self, tokenizer = None):
+        super(MRBasePipelinePhrases, self).__init__()
+        self.pipeline = [self.remove_underscores, 
+                         self.reducing_character_repetitions,
+                         self.clean_contractions,
+                         self.clean_special_chars]
+        self.tokenizer = tokenizer
+
+    def remove_underscores(self, corpus):
+        """
+        Solves the problem where some of the words are surrounded by underscores
+        (e.g. "_hello_")
+        """
+        for doc in corpus:
+            for idx, word in enumerate(doc):
+                if "_" in word:
+                    cleaned_word = self._clean_word(word)
+                    doc[idx] = cleaned_word
+        return corpus
+
+
+    def _clean_word(self, word: str):
+        word = word.replace("_", " ")
+        return word
+    
+    def reducing_character_repetitions(self, corpus):
+        new_corpus = []
+        for doc in corpus:
+            new_doc = [self._clean_repetitions(w) for w in doc]
+            new_corpus.append(new_doc)
         return new_corpus
     
     # inspired by https://towardsdatascience.com/cleaning-preprocessing-text-data-by-building-nlp-pipeline-853148add68a
     def _clean_repetitions(self, word):
         """
-        This Function will reduce repeatition to two characters 
+        This Function will reduce repetition to two characters 
         for alphabets and to one character for punctuations.
 
-        arguments:
-                input_text: "text" of type "String".
-                
-        return:
-            value: Finally formatted text with alphabets repeating to 
-            two characters & punctuations limited to one repeatition 
+        Parameters
+        ----------
+            word: str                
+        Returns
+        -------
+        str
+            Finally formatted text with alphabets repeating to 
+            one characters & punctuations limited to one repetition 
             
         Example:
         Input : Realllllllllyyyyy,        Greeeeaaaatttt   !!!!?....;;;;:)
@@ -192,28 +311,35 @@ class MRBasePipeline():
 
         # The below statement is replacing repetitions of spaces that occur more than two times with that of one occurrence.
         final_formatted = re.sub(' {2,}',' ', combined_formatted)
+        return final_formatted
     
     def clean_contractions(self, corpus):
-        new_corpus = []
         for doc in corpus:
-            for idx, word in doc:
-                try:
-                    correct = CONTRACTION_MAP[word]
-                    correct = correct.split()
-                    new_doc = new_doc + correct
-                except:
-                    new_doc = new_doc + word
-            new_corpus.append(new_doc)
-        return new_corpus
+            for idx, sent in enumerate(doc):
+                for w in CONTRACTION_MAP.keys():
+                    if w in sent:
+                        sent = sent.replace(w, CONTRACTION_MAP[w])
+                doc[idx] = sent
+        return corpus
 
-    def remove_stop_words(self, corpus):
-        stops = stopwords.words("english")
-        new_corpus = []
-        for doc in corpus:
-            new_doc = [w for w in doc if w not in stops]
-            new_corpus.append(new_doc)
+    def clean_special_chars(self, corpus):
+        new_corpus = [[self._clean_special_word(sent) for sent in doc] for doc in corpus] 
         return new_corpus
     
+    def _clean_special_word(self, word):
+        # The formatted text after removing not necessary punctuations.
+        formatted_text = re.sub(r"[^a-zA-Z0-9:€$-,%.?!]+", ' ', word) 
+        # In the above regex expression,I am providing necessary set of punctuations that are frequent in this particular dataset.
+        return formatted_text
 
-if __name__=="__main__":
-    pass
+
+if __name__ == "__main__":
+    example = [["_Lorrrrem_::-", "ipsum", "mustn't"], ["consectetur__", "§adipiçç@scing"], ["seddddd", "_eiu_smod_", "tempor", "incididunt"]]
+    token_pipeline = MRBasePipelineTokens()
+    corpus = token_pipeline(example)
+    print(corpus)
+
+    example_p = [["_Lorrrrem_::- ipsum mustn't sit amet", " consectetur__ §adipiçç@scing", "seddddd do _eiu_smod_"], ["frequent in]]] this particular dataset."]]
+    phrase_pipeline = MRBasePipelinePhrases()
+    corpus_p = phrase_pipeline(example_p)
+    print(corpus_p)
