@@ -139,12 +139,12 @@ class MRAbstractPipeline():
         return self.pipe(corpus)
         
 
-class MRBasePipelineTokens(MRAbstractPipeline):
+class MRPipelineTokens(MRAbstractPipeline):
     """
     Pipeline for documents represented as list of tokens
     """
     def __init__(self):
-        super(MRBasePipelineTokens, self).__init__()
+        super(MRPipelineTokens, self).__init__()
         self.pipeline = [self.remove_underscores, 
                          self.reducing_character_repetitions,
                          self.clean_contractions,
@@ -240,12 +240,12 @@ class MRBasePipelineTokens(MRAbstractPipeline):
         return formatted_text
     
 
-class MRBasePipelinePhrases(MRAbstractPipeline):
+class MRPipelinePhrases(MRAbstractPipeline):
     """
     Pipeline for documents represented as list of phrases
     """
     def __init__(self, tokenizer = None):
-        super(MRBasePipelinePhrases, self).__init__()
+        super(MRPipelinePhrases, self).__init__()
         self.pipeline = [self.remove_underscores, 
                          self.reducing_character_repetitions,
                          self.clean_contractions,
@@ -335,11 +335,11 @@ class MRBasePipelinePhrases(MRAbstractPipeline):
 
 if __name__ == "__main__":
     example = [["_Lorrrrem_::-", "ipsum", "mustn't"], ["consectetur__", "§adipiçç@scing"], ["seddddd", "_eiu_smod_", "tempor", "incididunt"]]
-    token_pipeline = MRBasePipelineTokens()
+    token_pipeline = MRPipelineTokens()
     corpus = token_pipeline(example)
     print(corpus)
 
     example_p = [["_Lorrrrem_::- ipsum mustn't sit amet", " consectetur__ §adipiçç@scing", "seddddd do _eiu_smod_"], ["frequent in]]] this particular dataset."]]
-    phrase_pipeline = MRBasePipelinePhrases()
+    phrase_pipeline = MRPipelinePhrases()
     corpus_p = phrase_pipeline(example_p)
     print(corpus_p)

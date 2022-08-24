@@ -6,10 +6,17 @@ class MovieReviewsCorpus():
     def __init__(self, preprocess_pipeline):
         # list of documents, each document is a list containing words of that document
         self.mr = movie_reviews
-        self.unprocessed_corpus = self._get_corpus()
-        self.flattened_corpus, self.labels = self._flatten()
+        self.pipeline = preprocess_pipeline
+        # Corpus as list of documents. Documents as list of sentences. Sentences as list of tokens
+        self.unprocessed_corpus, self.labels = self._get_corpus()
+        # Corpus as list of documents. Documents as list of tokens
+        self.flattened_corpus = self._flatten()
+        # Flattened and preprocessed corpus
+        self.processed_corpus = self._preprocess()
+
         self.corpus_words = self.get_corpus_words()
         self.vocab = self._create_vocab()
+
 
 
     def _list_to_str(self, doc) -> str:
@@ -18,6 +25,8 @@ class MovieReviewsCorpus():
         """
         return " ".join([w for sent in doc for w in sent])
 
+    def _preprocess(self):
+        return self.pipeline(self.flattened_corpus)
 
     def _flatten(self):
         """
@@ -28,18 +37,15 @@ class MovieReviewsCorpus():
         """
 
         # 3 nested list: each list contain a document, each inner list contains a phrase (until fullstop), each phrase contains words.
-        neg = self.mr.paras(categories = "neg")
-        pos = self.mr.paras(categories = "pos")
 
-        corpus = [[w for w in self._list_to_str(d).split(" ")] for d in pos] + [[w for w in self._list_to_str(d).split(" ")] for d in neg]
-        labels = [0] * len(pos) + [1] * len(neg)
-        return corpus, labels
+        corpus = [[w for w in self._list_to_str(d).split(" ")] for d in self.unprocessed_corpus]
+        return corpus
 
     def _get_corpus(self):
         neg = self.mr.paras(categories = "neg")
         pos = self.mr.paras(categories = "pos")
-
-        return neg + pos
+        labels = [0] * len(pos) + [1] * len(neg)
+        return neg + pos, labels
 
     def movie_reviews_dataset_raw(self):
         """
@@ -54,7 +60,7 @@ class MovieReviewsCorpus():
             The dataset: first element is the list of the document, the second element of the tuple is the associated label (positive or negative) for each document
         """
 
-        return self.corpus, self.labels
+        return self.flattened_corpus, self.labels
 
     def get_sentence_ds(self):
         neg = self.mr.paras(categories = "neg")
@@ -69,7 +75,7 @@ class MovieReviewsCorpus():
 
 
     def get_corpus_words(self) -> list:
-        return [w for doc in self.corpus for w in doc]
+        return [w for doc in self.flattened_corpus for w in doc]
     
     def get_embedding_matrix(self, embedding, embedding_dim):
         """
@@ -79,15 +85,17 @@ class MovieReviewsCorpus():
             A 2D which each row has the corresponding embedding from the vocabulary
         """
         matrix_length = len(self.vocab)
-        embedding_matrix = np.zeros(matrix_length, embedding_dim)
+        embedding_matrix = np.zeros((matrix_length, embedding_dim))
+        null_embedding = torch.tensor([0.0]*300)
         for idx, key in enumerate(self.vocab.keys()):
-            try:
-                embedding_matrix[idx] = embedding[key]
-            except:
+            if torch.equal(embedding[key], null_embedding):
                 embedding_matrix[idx] = np.random.normal(scale=0.6, size = (embedding_dim, ))
+            else:
+                embedding_matrix[idx] = embedding[key]
+                
         return embedding_matrix
     
-    def get_indexed_representation(self):
+    def get_indexed_corpus(self):
         """
         Returns
         -------
@@ -101,8 +109,8 @@ class MovieReviewsCorpus():
         for idx, key in enumerate(self.vocab.keys()):
             vocab[key] = idx
         
-        indexed_corpus = [[torch.tensor(vocab[w], dtype=torch.int32) for w in doc] for doc in self.corpus]
-        return indexed_corpus
+        indexed_corpus = [[torch.tensor(vocab[w], dtype=torch.int32) for w in doc] for doc in self.flattened_corpus]
+        return indexed_corpus, self.labels
 
 
     def _create_vocab(self):
@@ -117,5 +125,5 @@ class MovieReviewsCorpus():
 
 
     def __len__(self):
-        return len(self.corpus)
+        return len(self.flattened_corpus)
 
