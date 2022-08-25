@@ -75,7 +75,7 @@ class MovieReviewsCorpus():
 
 
     def get_corpus_words(self) -> list:
-        return [w for doc in self.flattened_corpus for w in doc]
+        return [w for doc in self.processed_corpus for w in doc]
     
     def get_embedding_matrix(self, embedding, embedding_dim):
         """
@@ -86,10 +86,12 @@ class MovieReviewsCorpus():
         """
         matrix_length = len(self.vocab)
         embedding_matrix = np.zeros((matrix_length, embedding_dim))
-        null_embedding = torch.tensor([0.0]*300)
+        # If I use torch.zeros directly it crashes (don't know why)
+        embedding_matrix = torch.from_numpy(embedding_matrix.copy())
+        null_embedding = torch.tensor([0.0]*embedding_dim)
         for idx, key in enumerate(self.vocab.keys()):
             if torch.equal(embedding[key], null_embedding):
-                embedding_matrix[idx] = np.random.normal(scale=0.6, size = (embedding_dim, ))
+                embedding_matrix[idx] = torch.randn(embedding_dim)
             else:
                 embedding_matrix[idx] = embedding[key]
                 
@@ -109,7 +111,7 @@ class MovieReviewsCorpus():
         for idx, key in enumerate(self.vocab.keys()):
             vocab[key] = idx
         
-        indexed_corpus = [[torch.tensor(vocab[w], dtype=torch.int32) for w in doc] for doc in self.flattened_corpus]
+        indexed_corpus = [[torch.tensor(vocab[w], dtype=torch.int32) for w in doc] for doc in self.processed_corpus]
         return indexed_corpus, self.labels
 
 
@@ -127,3 +129,14 @@ class MovieReviewsCorpus():
     def __len__(self):
         return len(self.flattened_corpus)
 
+
+
+if __name__=="__main__":
+    from preprocess import MRPipelineTokens
+    from torchtext.vocab import GloVe
+    global_vectors = GloVe(name='840B', dim=300)
+    pipeline = MRPipelineTokens()
+    corpus = MovieReviewsCorpus(pipeline)
+
+    embedding_matrix = corpus.get_embedding_matrix(global_vectors, 300)
+    print(embedding_matrix)

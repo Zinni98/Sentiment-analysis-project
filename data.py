@@ -2,6 +2,9 @@ from torch.utils.data import Dataset
 from torchtext.vocab import GloVe
 import torch
 import numpy as np
+from torch.utils.data import Subset
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 
 class MovieReviewsDataset(Dataset):
   def __init__(self, raw_dataset):
@@ -26,3 +29,20 @@ class MovieReviewsDataset(Dataset):
     item = self.corpus[index]
     label = self.labels[index]
     return (item, label)
+
+
+def get_data(batch_size: int, dataset, collate_fn, random_state = 42):
+
+  max_element = dataset.max_element
+
+  # Random Split
+  train_indexes, test_indexes = train_test_split(list(range(len(dataset.labels))), test_size = 0.2,
+                                                  stratify = dataset.labels, random_state = random_state)
+
+  train_ds = Subset(dataset, train_indexes)
+  test_ds = Subset(dataset, test_indexes)
+
+  train_loader = DataLoader(train_ds, batch_size = batch_size, collate_fn = collate_fn, pin_memory=True)
+  test_loader = DataLoader(test_ds, batch_size = batch_size, collate_fn = collate_fn, pin_memory=True)
+
+  return train_loader, test_loader

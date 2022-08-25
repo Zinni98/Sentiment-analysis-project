@@ -1,4 +1,3 @@
-from unicodedata import bidirectional
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pad_packed_sequence
@@ -6,10 +5,12 @@ import torch.nn.functional as F
 import torch
 
 class BiLSTM(nn.Module):
-    def __init__(self, device = "cuda", input_size = 300, hidden_size = 128, output_size = 2):
+    def __init__(self, embedding_matrix, device = "cuda", input_size = 300, hidden_size = 128, output_size = 2):
         super(BiLSTM, self).__init__()
+
         self.hidden_size = hidden_size
         self.device = device
+        self.embedding = self.create_embedding_layer(embedding_matrix)
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first = True, bidirectional=True, num_layers = 2)
         self.fc = nn.Sequential(nn.ReLU(),
                                 nn.BatchNorm1d(hidden_size*2, eps = 1e-08),
@@ -17,6 +18,10 @@ class BiLSTM(nn.Module):
                                 nn.Linear(hidden_size*2, output_size)
                                 )
 
+    def create_embedding_layer(self, embedding_matrix):
+        num_embeddings, embedding_dim = embedding_matrix.shape
+        emb_layer = nn.Embedding(num_embeddings, embedding_dim, -1)
+        emb_layer.load_state_dict({"weight": embedding_matrix})
 
     # function taken from https://discuss.pytorch.org/t/how-to-use-pack-sequence-if-we-are-going-to-use-word-embedding-and-bilstm/28184/4
     def simple_elementwise_apply(fn, packed_sequence):
@@ -31,6 +36,8 @@ class BiLSTM(nn.Module):
     def forward(self, x):
         batch_size = x.batch_sizes[0].item()
         hidden = self.init_hidden(batch_size)
+
+        x = self.simple_elementwise_apply(self.embedding, x)
 
         # output: batch_size, sequence_length, hidden_size * 2 (since is bilstm)
         out, _ = self.lstm(x, hidden)

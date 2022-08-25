@@ -235,7 +235,7 @@ class MRPipelineTokens(MRAbstractPipeline):
     
     def _clean_special_word(self, word):
         # The formatted text after removing not necessary punctuations.
-        formatted_text = re.sub(r"[^a-zA-Z0-9:€$-,%.?!]+", ' ', word) 
+        formatted_text = re.sub(r"[^a-zA-Z0-9:€$-,%.?!]+", '', word) 
         # In the above regex expression,I am providing necessary set of punctuations that are frequent in this particular dataset.
         return formatted_text
     

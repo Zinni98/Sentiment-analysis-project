@@ -2,21 +2,19 @@ import torch
 import numpy as np
 from typing import List
 from torch.nn.utils.rnn import pack_padded_sequence
-from torch.utils.data import Subset
-from sklearn.model_selection import train_test_split
 import operator
 from tqdm import tqdm
 import torch
 
 def pad(batch, max_size):
-    pad = torch.zeros(batch[0].size(dim=1))
+    pad = torch.tensor([-1])
     for idx in range(len(batch)):
         remaining = max_size - batch[idx].size(dim = 0)
-        batch[idx] = torch.cat((batch[idx], pad.repeat((remaining, 1))), dim = 0)
+        batch[idx] = torch.cat((batch[idx], pad.repeat(remaining)), dim = 0)
     return batch
 
 def batch_to_tensor(X: List[torch.tensor], max_size):
-    X_tensor = torch.zeros(len(X), max_size, X[0].size(dim = 1))
+    X_tensor = torch.zeros(len(X), max_size)
     for i, embed in enumerate(X):
         X_tensor[i] = embed
     return X_tensor
