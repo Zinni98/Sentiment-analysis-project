@@ -14,7 +14,7 @@ def pad(batch, max_size):
     return batch
 
 def batch_to_tensor(X: List[torch.tensor], max_size):
-    X_tensor = torch.zeros(len(X), max_size)
+    X_tensor = torch.zeros(len(X), max_size, dtype=torch.int32)
     for i, embed in enumerate(X):
         X_tensor[i] = embed
     return X_tensor

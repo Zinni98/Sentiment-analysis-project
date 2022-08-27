@@ -3,6 +3,7 @@ from dis import findlabels
 from unicodedata import name
 from nltk.corpus import stopwords
 import re
+import spacy
 
 
 CONTRACTION_MAP =  {"ain't": "is not",
@@ -148,7 +149,8 @@ class MRPipelineTokens(MRAbstractPipeline):
         self.pipeline = [self.remove_underscores, 
                          self.reducing_character_repetitions,
                          self.clean_contractions,
-                         self.clean_special_chars]
+                         self.clean_special_chars,
+                         self.remove_stop_words]
 
     def remove_underscores(self, corpus):
         """
@@ -239,41 +241,38 @@ class MRPipelineTokens(MRAbstractPipeline):
         # In the above regex expression,I am providing necessary set of punctuations that are frequent in this particular dataset.
         return formatted_text
     
+    def remove_stop_words(self, corpus):
+        stops = stopwords.words("english")
+        stops = [word for word in stops if "'t" not in word or "not" not in word]
+        return [[word for word in doc if word not in stops] for doc in corpus]
+    
 
 class MRPipelinePhrases(MRAbstractPipeline):
     """
     Pipeline for documents represented as list of phrases
     """
-    def __init__(self, tokenizer = None):
+    def __init__(self):
         super(MRPipelinePhrases, self).__init__()
         self.pipeline = [self.remove_underscores, 
+                         self.clean_special_chars,
                          self.reducing_character_repetitions,
-                         self.clean_contractions,
-                         self.clean_special_chars]
-        self.tokenizer = tokenizer
+                         self.lemmatize]
 
     def remove_underscores(self, corpus):
         """
         Solves the problem where some of the words are surrounded by underscores
         (e.g. "_hello_")
         """
-        for doc in corpus:
-            for idx, word in enumerate(doc):
-                if "_" in word:
-                    cleaned_word = self._clean_word(word)
-                    doc[idx] = cleaned_word
-        return corpus
+        new_corpus = [self._clean_word(doc) for doc in corpus]
+        return new_corpus
 
 
-    def _clean_word(self, word: str):
-        word = word.replace("_", " ")
-        return word
+    def _clean_word(self, doc: str):
+        doc = doc.replace("_", " ")
+        return doc
     
     def reducing_character_repetitions(self, corpus):
-        new_corpus = []
-        for doc in corpus:
-            new_doc = [self._clean_repetitions(w) for w in doc]
-            new_corpus.append(new_doc)
+        new_corpus = [self._clean_repetitions(doc) for doc in corpus]
         return new_corpus
     
     # inspired by https://towardsdatascience.com/cleaning-preprocessing-text-data-by-building-nlp-pipeline-853148add68a
@@ -301,10 +300,10 @@ class MRPipelinePhrases(MRAbstractPipeline):
 
         # Limiting all the repetitions to two characters.
         # MODIFIED: keep only one repetition of the character
-        formatted_text = pattern_alpha.sub(r"\1", word) 
+        formatted_text = pattern_alpha.sub(r"\1\1", word) 
 
         # Pattern matching for all the punctuations that can occur
-        pattern_punct = re.compile(r'([.,/#!$%^&*?;:{}=_`~()+-])\1{1,}')
+        pattern_punct = re.compile(r'([., /#!$%^&*?;:{}=_`~()+-])\1{1,}')
 
         # Limiting punctuations in previously formatted string to only one.
         combined_formatted = pattern_punct.sub(r'\1', formatted_text)
@@ -312,18 +311,9 @@ class MRPipelinePhrases(MRAbstractPipeline):
         # The below statement is replacing repetitions of spaces that occur more than two times with that of one occurrence.
         final_formatted = re.sub(' {2,}',' ', combined_formatted)
         return final_formatted
-    
-    def clean_contractions(self, corpus):
-        for doc in corpus:
-            for idx, sent in enumerate(doc):
-                for w in CONTRACTION_MAP.keys():
-                    if w in sent:
-                        sent = sent.replace(w, CONTRACTION_MAP[w])
-                doc[idx] = sent
-        return corpus
 
     def clean_special_chars(self, corpus):
-        new_corpus = [[self._clean_special_word(sent) for sent in doc] for doc in corpus] 
+        new_corpus = [self._clean_special_word(doc)  for doc in corpus]
         return new_corpus
     
     def _clean_special_word(self, word):
@@ -331,15 +321,18 @@ class MRPipelinePhrases(MRAbstractPipeline):
         formatted_text = re.sub(r"[^a-zA-Z0-9:€$-,%.?!]+", ' ', word) 
         # In the above regex expression,I am providing necessary set of punctuations that are frequent in this particular dataset.
         return formatted_text
+    
 
+    def lemmatize(self, corpus):
+        nlp = spacy.load('en_core_web_sm')
+        return [[token.lemma_ for token in nlp(doc)] for doc in corpus]
+        
 
 if __name__ == "__main__":
     example = [["_Lorrrrem_::-", "ipsum", "mustn't"], ["consectetur__", "§adipiçç@scing"], ["seddddd", "_eiu_smod_", "tempor", "incididunt"]]
-    token_pipeline = MRPipelineTokens()
-    corpus = token_pipeline(example)
-    print(corpus)
 
     example_p = [["_Lorrrrem_::- ipsum mustn't sit amet", " consectetur__ §adipiçç@scing", "seddddd do _eiu_smod_"], ["frequent in]]] this particular dataset."]]
-    phrase_pipeline = MRPipelinePhrases()
-    corpus_p = phrase_pipeline(example_p)
-    print(corpus_p)
+
+    nlp = spacy.load('en_core_web_sm')
+    for token in nlp("Don't do that"):
+        print(token.lemma_)
