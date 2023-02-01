@@ -10,7 +10,7 @@ It is recommended to read the report provided in this repo to get a better overv
 :warning: :warning: **Attention, read carefully the following bullet points in order to ensure that the notebook will run correctly. Furthermore, using google colab to run the notebook is strongly recommended**  :warning: :warning:
 
 - Ensure that the python version is 3.8 or greater
-- Install all the required packages using the following command ```pip install -r requirements.txt```. Ensure that you are installing the requirements included in this repo.
+- Install all the required packages using the following command ```pip install -r requirements.txt```, using the ```requirements.txt``` file included in this repository
 - Change paths at the beginning of the document to ensure that everithing is working correctly.
 
 
