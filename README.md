@@ -11,6 +11,6 @@ It is recommended to read the report provided in this repo to get a better overv
 
 - Ensure that the python version is 3.8 or greater
 - Install all the required packages using the following command ```pip install -r requirements.txt```, using the ```requirements.txt``` file included in this repository
-- Change paths at the beginning of the document to ensure that everithing is working correctly.
+- Change paths at the beginning of the document to ensure that everything is working correctly.
 
 
